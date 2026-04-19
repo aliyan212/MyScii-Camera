@@ -1,11 +1,11 @@
-# ASCII Vibe Camera
+# MySCII Camera
 
-Real-time camera-to-ASCII app with a performance-first pipeline and minimal camera-centric UI.
+Real-time camera-to-ASCII app with a minimal camera-centric UI.
 
 ## Open-source status
 
 - License: MIT
-- Current stage: pre-1.0 public preview
+- Current stage: 1.0 public preview
 - Contributions: welcome
 
 Project governance and contributor docs:
@@ -25,7 +25,7 @@ Project governance and contributor docs:
 - `ascii-engine` module with fast luminance-to-ASCII conversion, temporal smoothing, and configurable render presets
 - Android `app` module with CameraX preview/analyzer integration and a custom high-performance ASCII overlay renderer
 - Camera-first UX with centered circular capture control, gallery access, and settings menu
-- Capture save flow exporting both `.txt` and `.png` into app-private storage
+- Capture save flow exporting `.png` into app-private storage
 - Indexed capture metadata with in-app gallery preview and share/export
 - Runtime camera permission gate for first launch usability
 - Continuous test workflow on GitHub Actions
@@ -45,38 +45,4 @@ Project governance and contributor docs:
 - [x] CI pipeline for tests and build
 - [x] Initial release notes/changelog scaffold
 
-## Release quick start
 
-1. Run validation:
-
-```bash
-./gradlew :ascii-engine:test :app:testDebugUnitTest :app:assembleDebug
-```
-
-2. Update [CHANGELOG.md](CHANGELOG.md) for the release.
-3. Create and push a version tag:
-
-```bash
-git tag -a v0.1.0 -m "ASCII Vibe Camera v0.1.0"
-git push origin v0.1.0
-```
-
-4. Create GitHub release notes and attach APK artifacts if desired.
-5. Follow [docs/RELEASE.md](docs/RELEASE.md) for full GitHub/FOSS release checklist.
-
-## Testing quick start
-
-```bash
-./gradlew :ascii-engine:test :app:assembleDebug
-```
-
-Current CI runs:
-
-- `./gradlew :ascii-engine:test`
-- `./gradlew :app:testDebugUnitTest`
-
-Manual instrumentation run (requires emulator/device):
-
-```bash
-./gradlew :app:connectedDebugAndroidTest
-```

@@ -5,11 +5,10 @@
 - [x] Project and module scaffold.
 - [x] Core ASCII engine.
 - [x] Camera preview + analyzer + overlay prototype.
-- [ ] Add Gradle wrapper and CI baseline.
 
 ## v0.2 Capture
 
-- [x] Save PNG and TXT outputs.
+- [x] Save PNG outputs.
 - [x] Metadata persistence for captures index.
 - [ ] Basic gallery view.
 
@@ -18,7 +17,7 @@
 - [x] Basic gallery mode with capture text preview.
 - [x] Copy/share text action from selected capture.
 - [x] Adaptive auto-quality toggle in camera mode.
-- [ ] Presets for style and density.
+- [x] Presets for style and density.
 - [ ] Stronger visual system and motion polish.
 - [ ] Accessibility pass for controls and contrast.
 
