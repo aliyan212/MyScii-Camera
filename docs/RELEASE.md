@@ -46,8 +46,52 @@ On GitHub:
 
 Recommended attached assets:
 
-- `app-debug.apk` or signed release APK/AAB
+- signed `app-release.apk` (preferred) or release AAB
 - `SHA256SUMS.txt`
+
+### Build a signed release APK
+
+1. Generate a keystore once:
+
+```bash
+keytool -genkeypair -v \
+	-keystore release-keystore.jks \
+	-alias ascii_vibe_release \
+	-keyalg RSA \
+	-keysize 2048 \
+	-validity 10000
+```
+
+2. Configure signing secrets locally:
+
+```bash
+cp keystore.properties.example keystore.properties
+```
+
+Then edit `keystore.properties` with your real values.
+
+3. Build and verify:
+
+```bash
+./gradlew :app:assembleRelease
+apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk
+```
+
+4. Generate checksum for release asset:
+
+```bash
+sha256sum app/build/outputs/apk/release/app-release.apk > SHA256SUMS.txt
+```
+
+### CI / future pushes
+
+- `keystore.properties` and `*.jks` are gitignored; never commit secrets or keystores.
+- CI can provide the same values via environment variables:
+	- `RELEASE_STORE_FILE`
+	- `RELEASE_STORE_PASSWORD`
+	- `RELEASE_KEY_ALIAS`
+	- `RELEASE_KEY_PASSWORD`
+- Keep an offline backup of your release keystore. Losing it prevents updates signed with the same identity.
 
 ## 5. FOSS distribution readiness
 

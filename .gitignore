@@ -5,3 +5,6 @@ build/
 **/build/
 *.iml
 .DS_Store
+*.jks
+*.keystore
+keystore.properties
