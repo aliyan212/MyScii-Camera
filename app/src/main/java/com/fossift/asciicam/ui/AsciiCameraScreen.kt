@@ -3,10 +3,12 @@ package com.fossift.asciicam.ui
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -77,12 +79,18 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private enum class RenderPreset {
     FACE,
     SCENE,
+}
+
+private enum class AppScreen {
+    CAMERA,
+    GALLERY,
 }
 
 private enum class ColorMode {
@@ -107,11 +115,11 @@ fun AsciiCameraScreen() {
     var colorMode by remember { mutableStateOf(ColorMode.COOL) }
     var frameMs by remember { mutableStateOf(0.0) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
+    var screenMode by remember { mutableStateOf(AppScreen.CAMERA) }
     var previewView by remember { mutableStateOf<PreviewView?>(null) }
     var overlayView by remember { mutableStateOf<AsciiOverlayView?>(null) }
     var recentCaptures by remember { mutableStateOf<List<CaptureRecord>>(emptyList()) }
     var showOptionsSheet by remember { mutableStateOf(false) }
-    var showGallerySheet by remember { mutableStateOf(false) }
 
     val fixedGridWidth = AsciiUiDefaults.baseWidth
     val fixedGridHeight = AsciiUiDefaults.baseHeight
@@ -175,9 +183,9 @@ fun AsciiCameraScreen() {
             },
         )
     }
-    DisposableEffect(previewView, lifecycleOwner, useFrontCamera, hasCameraPermission) {
+    DisposableEffect(previewView, lifecycleOwner, useFrontCamera, hasCameraPermission, screenMode) {
         val view = previewView
-        if (view == null || !hasCameraPermission) {
+        if (screenMode != AppScreen.CAMERA || view == null || !hasCameraPermission) {
             onDispose { }
         } else {
             val selector = if (useFrontCamera) {
@@ -206,6 +214,19 @@ fun AsciiCameraScreen() {
         }
     }
 
+    LaunchedEffect(statusMessage) {
+        val message = statusMessage ?: return@LaunchedEffect
+        val timeoutMs = if (message.contains("Saving", ignoreCase = true)) 3000L else 2200L
+        delay(timeoutMs)
+        if (statusMessage == message) {
+            statusMessage = null
+        }
+    }
+
+    BackHandler(enabled = screenMode == AppScreen.GALLERY) {
+        screenMode = AppScreen.CAMERA
+    }
+
     val backgroundGradient = Brush.verticalGradient(
         colors = listOf(Color(0xFF05070A), Color(0xFF090D12), Color(0xFF0C1118)),
     )
@@ -215,40 +236,160 @@ fun AsciiCameraScreen() {
             .fillMaxSize()
             .background(backgroundGradient),
     ) {
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(top = 10.dp, start = 12.dp, end = 12.dp)
-                .background(Color(0xCC090C12), RoundedCornerShape(14.dp))
-                .border(1.dp, Color(0x55324A62), RoundedCornerShape(14.dp))
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text(
-                text = "MySCII Camera",
-                color = Color(0xFFEFF4FB),
-                style = MaterialTheme.typography.titleSmall,
+        if (screenMode == AppScreen.CAMERA) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(top = 10.dp, start = 12.dp, end = 12.dp)
+                    .background(Color(0xCC090C12), RoundedCornerShape(14.dp))
+                    .border(1.dp, Color(0x55324A62), RoundedCornerShape(14.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    text = "MySCII Camera",
+                    color = Color(0xFFEFF4FB),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    text = "${"%.1f".format(frameMs)} ms",
+                    color = Color(0xFF9FB0C4),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+
+            CameraTab(
+                modifier = Modifier.fillMaxSize(),
+                hasCameraPermission = hasCameraPermission,
+                onRequestPermission = { permissionLauncher.launch(Manifest.permission.CAMERA) },
+                asciiColor = asciiToneColor(colorMode),
+                colorMode = colorMode,
+                showCameraBackground = showCameraBackground,
+                onPreviewReady = { previewView = it },
+                onOverlayReady = { view ->
+                    overlayView = view
+                },
             )
-            Text(
-                text = "${"%.1f".format(frameMs)} ms",
-                color = Color(0xFF9FB0C4),
-                style = MaterialTheme.typography.bodySmall,
+
+            BoxWithConstraints(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 14.dp, vertical = 12.dp)
+                    .fillMaxWidth()
+                    .background(Color(0xAA0A0D11), RoundedCornerShape(22.dp))
+                    .padding(horizontal = 12.dp, vertical = 14.dp),
+            ) {
+                val actionWidth = maxWidth / 3
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Button(
+                        onClick = {
+                            recentCaptures = captureStore.listRecent(limit = 60)
+                            screenMode = AppScreen.GALLERY
+                        },
+                        modifier = Modifier
+                            .width(actionWidth)
+                            .height(54.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF11161D)),
+                        shape = RoundedCornerShape(18.dp),
+                    ) {
+                        Text("Gallery")
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .width(actionWidth)
+                            .height(84.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Button(
+                            onClick = {
+                                val snapshot = latestFrame.get()?.asText()
+                                if (snapshot == null) {
+                                    statusMessage = "No frame yet. Try again in a moment."
+                                    return@Button
+                                }
+                                // Read from PreviewView on UI thread, then save on IO.
+                                val originalPreviewBitmap = previewView?.bitmap?.let { Bitmap.createBitmap(it) }
+                                statusMessage = "Saving capture..."
+                                scope.launch {
+                                    val result = withContext(Dispatchers.IO) {
+                                        runCatching {
+                                            captureStore.save(snapshot, originalBitmap = originalPreviewBitmap)
+                                        }
+                                    }
+                                    result.onSuccess { saved ->
+                                        statusMessage = "Saved: ${saved.pngPath.substringAfterLast('/')}"
+                                        recentCaptures = captureStore.listRecent(limit = 60)
+                                    }.onFailure { err ->
+                                        statusMessage = "Save failed: ${err.message ?: "unknown"}"
+                                    }
+                                }
+                            },
+                            modifier = Modifier.size(78.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE7E9EF)),
+                            shape = androidx.compose.foundation.shape.CircleShape,
+                            contentPadding = PaddingValues(0.dp),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .border(2.dp, Color(0xFF0A0D11), androidx.compose.foundation.shape.CircleShape)
+                                    .background(Color.Transparent, androidx.compose.foundation.shape.CircleShape),
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = { showOptionsSheet = true },
+                        modifier = Modifier
+                            .width(actionWidth)
+                            .height(54.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF11161D)),
+                        shape = RoundedCornerShape(18.dp),
+                    ) {
+                        Text("Menu")
+                    }
+                }
+            }
+        } else {
+            AsciiGalleryScreen(
+                modifier = Modifier.fillMaxSize(),
+                captures = recentCaptures,
+                onBackToCamera = { screenMode = AppScreen.CAMERA },
+                onRefresh = {
+                    recentCaptures = captureStore.listRecent(limit = 60)
+                    statusMessage = "Gallery refreshed"
+                },
+                onDeleteCapture = { record ->
+                    scope.launch {
+                        val deleted = withContext(Dispatchers.IO) {
+                            captureStore.deleteCapture(record)
+                        }
+                        if (deleted) {
+                            recentCaptures = captureStore.listRecent(limit = 60)
+                            statusMessage = "Capture deleted"
+                        } else {
+                            statusMessage = "Delete failed: file missing"
+                        }
+                    }
+                },
+                onExportCapture = { capture ->
+                    val pngFile = captureStore.resolveCapturePngFile(capture)
+                    if (pngFile == null) {
+                        statusMessage = "Export failed: file missing"
+                    } else {
+                        sharePngFile(context, pngFile) { status ->
+                            statusMessage = status
+                        }
+                    }
+                },
             )
         }
-
-        CameraTab(
-            modifier = Modifier.fillMaxSize(),
-            hasCameraPermission = hasCameraPermission,
-            onRequestPermission = { permissionLauncher.launch(Manifest.permission.CAMERA) },
-            asciiColor = asciiToneColor(colorMode),
-            colorMode = colorMode,
-            showCameraBackground = showCameraBackground,
-            onPreviewReady = { previewView = it },
-            onOverlayReady = { view ->
-                overlayView = view
-            },
-        )
 
         statusMessage?.let {
             Text(
@@ -263,90 +404,9 @@ fun AsciiCameraScreen() {
                     .padding(horizontal = 10.dp, vertical = 8.dp),
             )
         }
-
-        BoxWithConstraints(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 14.dp, vertical = 12.dp)
-                .fillMaxWidth()
-                .background(Color(0xAA0A0D11), RoundedCornerShape(22.dp))
-                .padding(horizontal = 12.dp, vertical = 14.dp),
-        ) {
-            val actionWidth = maxWidth / 3
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Button(
-                    onClick = {
-                        recentCaptures = captureStore.listRecent(limit = 60)
-                        showGallerySheet = true
-                    },
-                    modifier = Modifier
-                        .width(actionWidth)
-                        .height(54.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF11161D)),
-                    shape = RoundedCornerShape(18.dp),
-                ) {
-                    Text("Gallery")
-                }
-
-                Box(
-                    modifier = Modifier
-                        .width(actionWidth)
-                        .height(84.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Button(
-                        onClick = {
-                            val snapshot = latestFrame.get()?.asText()
-                            if (snapshot == null) {
-                                statusMessage = "No frame yet. Try again in a moment."
-                                return@Button
-                            }
-                            statusMessage = "Saving capture..."
-                            scope.launch {
-                                val result = withContext(Dispatchers.IO) {
-                                    runCatching { captureStore.save(snapshot) }
-                                }
-                                result.onSuccess { saved ->
-                                    statusMessage = "Saved: ${saved.pngPath.substringAfterLast('/')}"
-                                    recentCaptures = captureStore.listRecent(limit = 60)
-                                }.onFailure { err ->
-                                    statusMessage = "Save failed: ${err.message ?: "unknown"}"
-                                }
-                            }
-                        },
-                        modifier = Modifier.size(78.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE7E9EF)),
-                        shape = androidx.compose.foundation.shape.CircleShape,
-                        contentPadding = PaddingValues(0.dp),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .border(2.dp, Color(0xFF0A0D11), androidx.compose.foundation.shape.CircleShape)
-                                .background(Color.Transparent, androidx.compose.foundation.shape.CircleShape),
-                        )
-                    }
-                }
-
-                Button(
-                    onClick = { showOptionsSheet = true },
-                    modifier = Modifier
-                        .width(actionWidth)
-                        .height(54.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF11161D)),
-                    shape = RoundedCornerShape(18.dp),
-                ) {
-                    Text("Menu")
-                }
-            }
-        }
     }
 
-    if (showOptionsSheet) {
+    if (showOptionsSheet && screenMode == AppScreen.CAMERA) {
         ModalBottomSheet(
             onDismissRequest = { showOptionsSheet = false },
             containerColor = Color(0xFF05070A),
@@ -385,37 +445,6 @@ fun AsciiCameraScreen() {
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
-        }
-    }
-
-    if (showGallerySheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showGallerySheet = false },
-            containerColor = Color(0xFF05070A),
-            contentColor = Color(0xFFF0F3F8),
-        ) {
-            PhotoGalleryTab(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(520.dp)
-                    .padding(horizontal = 12.dp),
-                captures = recentCaptures,
-                onRefresh = {
-                    recentCaptures = captureStore.listRecent(limit = 60)
-                    statusMessage = "Gallery refreshed"
-                },
-                onExportCapture = { capture ->
-                    val pngFile = captureStore.resolveCapturePngFile(capture)
-                    if (pngFile == null) {
-                        statusMessage = "Export failed: file missing"
-                    } else {
-                        sharePngFile(context, pngFile) { status ->
-                            statusMessage = status
-                        }
-                    }
-                },
-            )
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

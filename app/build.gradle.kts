@@ -4,9 +4,42 @@ plugins {
     kotlin("plugin.compose")
 }
 
+import java.util.Properties
+
+fun Project.loadSigningProperties(): Properties {
+    val props = Properties()
+    val signingFile = rootProject.file("keystore.properties")
+    if (signingFile.exists()) {
+        signingFile.inputStream().use(props::load)
+    }
+    return props
+}
+
+fun Project.signingValue(props: Properties, key: String): String? {
+    return props.getProperty(key)
+        ?: providers.environmentVariable(key).orNull
+}
+
 android {
     namespace = "com.fossift.asciicam"
     compileSdk = 35
+
+    val signingProps = project.loadSigningProperties()
+
+    signingConfigs {
+        create("release") {
+            val storePath = project.signingValue(signingProps, "RELEASE_STORE_FILE")
+            if (!storePath.isNullOrBlank()) {
+                storeFile = file(storePath)
+            }
+            storePassword = project.signingValue(signingProps, "RELEASE_STORE_PASSWORD")
+            keyAlias = project.signingValue(signingProps, "RELEASE_KEY_ALIAS")
+            keyPassword = project.signingValue(signingProps, "RELEASE_KEY_PASSWORD")
+                ?: storePassword
+            enableV1Signing = true
+            enableV2Signing = true
+        }
+    }
 
     defaultConfig {
         applicationId = "com.fossift.asciicam"
@@ -24,6 +57,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -41,6 +75,10 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    lint {
+        disable += "NullSafeMutableLiveData"
     }
 
     testOptions {
@@ -76,6 +114,7 @@ dependencies {
     testImplementation("androidx.test:core:1.6.1")
     testImplementation("org.robolectric:robolectric:4.14.1")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:rules:1.6.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 }

@@ -3,18 +3,19 @@
 ## v0.1 Foundation
 
 - [x] Project and module scaffold.
-- [x] Core ASCII engine.
+- [x] Core ASCII engine
 - [x] Camera preview + analyzer + overlay prototype.
 
 ## v0.2 Capture
 
 - [x] Save PNG outputs.
 - [x] Metadata persistence for captures index.
-- [ ] Basic gallery view.
+- [x] Basic gallery view.
 
 ## v0.3 Experience
 
 - [x] Basic gallery mode with capture text preview.
+- [x] Full-screen gallery view with capture preview and delete support.
 - [x] Copy/share text action from selected capture.
 - [x] Adaptive auto-quality toggle in camera mode.
 - [x] Presets for style and density.

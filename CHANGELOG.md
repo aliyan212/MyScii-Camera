@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project follows Semantic Versioning (pre-1.0).
 
+## [Unreleased]
+
+### Added
+- Full-screen gallery experience with swipe navigation between captures.
+- Android back-button behavior in gallery: open-photo -> gallery grid -> camera.
+- Optional original-frame storage at capture time for A/B comparison in the viewer.
+- Full-screen compare toggle: `Show Original` / `Show ASCII`.
+- Zoom controls in the full-screen viewer (`Zoom In`, `Zoom Out`, `Reset`).
+
+### Changed
+- Gallery header now respects system status bar insets to avoid punch-hole/cutout overlap.
+- Capture save flow now snapshots preview bitmap on UI thread before background file writes for stability.
+
 ## [0.1.0] - 2026-04-19
 
 ### Added
