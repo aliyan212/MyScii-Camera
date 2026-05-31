@@ -1,7 +1,7 @@
 .gradle/
 .vscode/
 .idea/
-.gitignore/
+.gitignore
 local.properties
 build/
 **/build/
