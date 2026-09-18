@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Viewfinder bump on top -->
+    <path
+        android:pathData="M43,33h12a2,2 0,0 1,2 2v3h-16v-3a2,2 0,0 1,2 -2z"
+        android:fillColor="#1B2230"
+        android:strokeWidth="1.75"
+        android:strokeColor="#E2E8F0" />
+
+    <!-- Shutter button on top-right -->
+    <path
+        android:pathData="M66,34.5h9a1.5,1.5 0,0 1,1.5 1.5v2h-12v-2a1.5,1.5 0,0 1,1.5 -1.5z"
+        android:fillColor="#E2E8F0" />
+
+    <!-- Camera Body Silhouette -->
+    <path
+        android:pathData="M29,38h50a7,7 0,0 1,7 7v28a7,7 0,0 1,-7 7h-50a7,7 0,0 1,-7 -7v-28a7,7 0,0 1,7 -7z"
+        android:fillColor="#171E2B"
+        android:strokeWidth="2.2"
+        android:strokeColor="#F1F5F9"
+        android:strokeLineJoin="round" />
+
+    <!-- Small Flash / Sensor Window -->
+    <path
+        android:pathData="M35,44.5h7a1.5,1.5 0,0 1,1.5 1.5v4a1.5,1.5 0,0 1,-1.5 1.5h-7a1.5,1.5 0,0 1,-1.5 -1.5v-4a1.5,1.5 0,0 1,1.5 -1.5z"
+        android:fillColor="#E2E8F0" />
+
+    <!-- Lens Outer Ring -->
+    <path
+        android:pathData="M54,58m-14.5,0a14.5,14.5 0,1 1,29 0a14.5,14.5 0,1 1,-29 0"
+        android:fillColor="#0D121B"
+        android:strokeWidth="2.2"
+        android:strokeColor="#F1F5F9" />
+
+    <!-- Typographic ASCII Bracket: Left '[' -->
+    <path
+        android:pathData="M44.5,52h-2.5v12h2.5"
+        android:strokeWidth="2"
+        android:strokeColor="#F8FAFC"
+        android:strokeLineCap="square" />
+
+    <!-- Typographic ASCII Parenthesis: Left '(' -->
+    <path
+        android:pathData="M48.5,53.5c-2,2.5 -2,6.5 0,9"
+        android:strokeWidth="1.8"
+        android:strokeColor="#CBD5E1"
+        android:strokeLineCap="round" />
+
+    <!-- Typographic ASCII Symbol: Center '@' Iris -->
+    <path
+        android:pathData="M54,55a3,3 0,1 0,2.8 3v-2.2a1.8,1.8 0,0 0,-1.8 -1.8c-2.4,0 -4.2,1.8 -4.2,4.2a4.2,4.2 0,0 0,7.6 2.2"
+        android:strokeWidth="1.6"
+        android:strokeColor="#F8FAFC"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- Center Pupil Dot -->
+    <path
+        android:pathData="M54,58m-1.2,0a1.2,1.2 0,1 1,2.4 0a1.2,1.2 0,1 1,-2.4 0"
+        android:fillColor="#F8FAFC" />
+
+    <!-- Typographic ASCII Parenthesis: Right ')' -->
+    <path
+        android:pathData="M59.5,53.5c2,2.5 2,6.5 0,9"
+        android:strokeWidth="1.8"
+        android:strokeColor="#CBD5E1"
+        android:strokeLineCap="round" />
+
+    <!-- Typographic ASCII Bracket: Right ']' -->
+    <path
+        android:pathData="M63.5,52h2.5v12h-2.5"
+        android:strokeWidth="2"
+        android:strokeColor="#F8FAFC"
+        android:strokeLineCap="square" />
+
+</vector>

@@ -4,11 +4,12 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.LinearGradient
 import android.graphics.Paint
-import android.graphics.Typeface
 import android.graphics.Shader
-import android.util.TypedValue
+import android.graphics.Typeface
 import android.view.View
 import com.fossift.asciicam.engine.AsciiFrame
+import kotlin.math.max
+import kotlin.math.min
 
 class AsciiOverlayView(context: Context) : View(context) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -16,18 +17,20 @@ class AsciiOverlayView(context: Context) : View(context) {
         typeface = Typeface.MONOSPACE
         textAlign = Paint.Align.LEFT
         color = 0xFFFFFFFF.toInt()
-        textSize = TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_SP,
-            7f,
-            resources.displayMetrics,
-        )
     }
 
-    private var lineHeight: Float = paint.fontSpacing
     private var frame: AsciiFrame? = null
     private var solidColorInt: Int = 0xFFFFFFFF.toInt()
     private var neonMode: Boolean = false
     private var neonShader: Shader? = null
+
+    // Layout metrics
+    private var lastFrameWidth: Int = 0
+    private var lastFrameHeight: Int = 0
+    private var calculatedTextSize: Float = 14f
+    private var calculatedLineHeight: Float = 16f
+    private var startOffsetX: Float = 0f
+    private var startOffsetY: Float = 0f
 
     fun setAsciiColorInt(color: Int) {
         if (solidColorInt != color) {
@@ -51,7 +54,13 @@ class AsciiOverlayView(context: Context) : View(context) {
     }
 
     fun setAsciiFrame(nextFrame: AsciiFrame) {
+        val sizeChanged = nextFrame.width != lastFrameWidth || nextFrame.height != lastFrameHeight
         frame = nextFrame
+        if (sizeChanged) {
+            lastFrameWidth = nextFrame.width
+            lastFrameHeight = nextFrame.height
+            recalculateLayoutMetrics()
+        }
         postInvalidateOnAnimation()
     }
 
@@ -80,6 +89,41 @@ class AsciiOverlayView(context: Context) : View(context) {
         if (neonMode) {
             paint.shader = neonShader
         }
+        recalculateLayoutMetrics()
+    }
+
+    private fun recalculateLayoutMetrics() {
+        val w = width
+        val h = height
+        val cols = lastFrameWidth
+        val rows = lastFrameHeight
+        if (w <= 0 || h <= 0 || cols <= 0 || rows <= 0) return
+
+        // Measure reference monospace character ratios at reference size 100f
+        val refSize = 100f
+        paint.textSize = refSize
+        val refCharWidth = paint.measureText("M")
+        val refLineHeight = paint.fontSpacing
+
+        val charRatioX = refCharWidth / refSize
+        val lineRatioY = refLineHeight / refSize
+
+        // Calculate max text size that fits both horizontally and vertically
+        val fitX = (w.toFloat() / (cols * charRatioX))
+        val fitY = (h.toFloat() / (rows * lineRatioY))
+        calculatedTextSize = max(6f, min(fitX, fitY))
+
+        paint.textSize = calculatedTextSize
+        val charWidth = paint.measureText("M")
+        calculatedLineHeight = paint.fontSpacing
+
+        val totalGridWidth = cols * charWidth
+        val totalGridHeight = rows * calculatedLineHeight
+
+        startOffsetX = max(0f, (w - totalGridWidth) / 2f)
+        val metrics = paint.fontMetrics
+        val ascent = -metrics.ascent
+        startOffsetY = max(0f, (h - totalGridHeight) / 2f) + ascent
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -93,12 +137,16 @@ class AsciiOverlayView(context: Context) : View(context) {
             paint.color = solidColorInt
         }
 
+        paint.textSize = calculatedTextSize
         val chars = current.chars
         val rowWidth = current.width
         var srcIndex = 0
-        var baselineY = lineHeight
+        var baselineY = startOffsetY
+        val x = startOffsetX
+        val lineHeight = calculatedLineHeight
+
         for (row in 0 until current.height) {
-            canvas.drawText(chars, srcIndex, rowWidth, 0f, baselineY, paint)
+            canvas.drawText(chars, srcIndex, rowWidth, x, baselineY, paint)
             srcIndex += rowWidth
             baselineY += lineHeight
         }

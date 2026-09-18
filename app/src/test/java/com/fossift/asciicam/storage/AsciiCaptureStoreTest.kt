@@ -3,6 +3,7 @@ package com.fossift.asciicam.storage
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import java.io.File
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -40,5 +41,18 @@ class AsciiCaptureStoreTest {
         assertFalse(pngFile.exists())
         assertFalse(indexFile.exists())
         assertTrue(AsciiCaptureStore(context).listRecent().isEmpty())
+    }
+
+    @Test
+    fun readCaptureText_returnsContentWhenFileExists() {
+        val textFile = File(capturesDir, "capture_test2.txt")
+        textFile.writeText("@@##++")
+        val record = CaptureRecord(
+            timestampUtc = "2026-04-26T00:00:00Z",
+            textFileName = textFile.name,
+            pngFileName = "nonexistent.png",
+        )
+        val text = AsciiCaptureStore(context).readCaptureText(record)
+        assertEquals("@@##++", text)
     }
 }

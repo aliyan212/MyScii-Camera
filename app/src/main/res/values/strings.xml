@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">MySCII Camera</string>
+    <string name="camera_permission_required">Camera permission required</string>
+    <string name="camera_permission_rationale">Allow camera access to start the live MySCII renderer.</string>
+    <string name="grant_permission">Grant permission</string>
+    <string name="gallery_title">MySCII Gallery</string>
+    <string name="settings_title">MySCII Settings</string>
+    <string name="no_captures_title">No captures yet</string>
+    <string name="no_captures_desc">Capture a frame in MySCII Camera and it will appear here.</string>
+    <string name="capture_saved">Capture saved</string>
+    <string name="saving_capture">Saving capture…</string>
+    <string name="export_photo">Export photo</string>
+    <string name="copy_ascii">Copy ASCII</string>
+    <string name="ascii_copied">ASCII copied to clipboard</string>
+    <string name="delete_capture">Delete capture</string>
+    <string name="delete_confirm_title">Delete Capture?</string>
+    <string name="delete_confirm_desc">This capture will be permanently deleted.</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete">Delete</string>
+</resources>

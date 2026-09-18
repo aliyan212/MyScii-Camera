@@ -9,8 +9,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,20 +21,28 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -60,11 +68,23 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.fossift.asciicam.R
 import com.fossift.asciicam.storage.CaptureRecord
+import com.fossift.asciicam.ui.theme.AlertRed
+import com.fossift.asciicam.ui.theme.CyberCyan
+import com.fossift.asciicam.ui.theme.DarkBackground
+import com.fossift.asciicam.ui.theme.DarkOutline
+import com.fossift.asciicam.ui.theme.DarkSurface
+import com.fossift.asciicam.ui.theme.DarkSurfaceElevated
+import com.fossift.asciicam.ui.theme.TextMuted
+import com.fossift.asciicam.ui.theme.TextPrimary
+import com.fossift.asciicam.ui.theme.TextSecondary
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -77,8 +97,10 @@ fun AsciiGalleryScreen(
     onRefresh: () -> Unit,
     onDeleteCapture: (CaptureRecord) -> Unit,
     onExportCapture: (CaptureRecord) -> Unit,
+    onCopyAscii: ((CaptureRecord) -> Unit)? = null,
 ) {
     var selectedIndex by remember { mutableStateOf<Int?>(null) }
+    var recordToDelete by remember { mutableStateOf<CaptureRecord?>(null) }
     val selectedCapture = selectedIndex?.let { captures.getOrNull(it) }
 
     BackHandler(enabled = selectedIndex != null) {
@@ -89,6 +111,47 @@ fun AsciiGalleryScreen(
         if (selectedIndex != null && selectedCapture == null) {
             selectedIndex = null
         }
+    }
+
+    // Delete Confirmation Dialog
+    recordToDelete?.let { targetRecord ->
+        AlertDialog(
+            onDismissRequest = { recordToDelete = null },
+            title = {
+                Text(
+                    text = stringResource(id = R.string.delete_confirm_title),
+                    color = TextPrimary,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource(id = R.string.delete_confirm_desc),
+                    color = TextSecondary,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteCapture(targetRecord)
+                        recordToDelete = null
+                        if (selectedIndex != null && captures.size <= 1) {
+                            selectedIndex = null
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AlertRed),
+                ) {
+                    Text(stringResource(id = R.string.delete))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { recordToDelete = null }) {
+                    Text(stringResource(id = R.string.cancel), color = TextSecondary)
+                }
+            },
+            containerColor = DarkSurface,
+        )
     }
 
     AnimatedContent(
@@ -103,68 +166,77 @@ fun AsciiGalleryScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
+                .navigationBarsPadding()
                 .background(
                     Brush.verticalGradient(
-                        colors = listOf(Color(0xFF080A0F), Color(0xFF0D1218), Color(0xFF11161D)),
+                        colors = listOf(DarkBackground, DarkSurface, Color(0xFF101622)),
                     ),
                 )
-                .padding(12.dp),
+                .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // Header with back button and title
+            // Header bar
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                if (isGridView) {
-                    IconButton(
-                        onClick = onBackToCamera,
-                        modifier = Modifier.background(
-                            color = Color(0x332A1E16),
-                            shape = RoundedCornerShape(12.dp),
-                        ),
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back to camera",
-                            tint = Color(0xFFF4E8D8),
-                        )
-                    }
+                IconButton(
+                    onClick = {
+                        if (isGridView) onBackToCamera() else selectedIndex = null
+                    },
+                    modifier = Modifier
+                        .background(DarkSurfaceElevated, RoundedCornerShape(14.dp))
+                        .border(1.dp, DarkOutline, RoundedCornerShape(14.dp)),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = TextPrimary,
+                    )
                 }
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = if (isGridView) "MySCII Gallery" else "Full-screen view",
-                        color = Color(0xFFF4E8D8),
+                        text = if (isGridView) stringResource(id = R.string.gallery_title) else "Capture Viewer",
+                        color = TextPrimary,
                         style = MaterialTheme.typography.titleLarge,
-                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
                     )
                     Text(
                         text = if (isGridView) {
-                            "${captures.size} saved captures"
+                            "${captures.size} photos saved"
                         } else {
                             selectedCapture?.let { prettyTimestamp(it.timestampUtc) } ?: ""
                         },
-                        color = Color(0xFFCFBEAE),
+                        color = TextSecondary,
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
 
                 if (isGridView) {
-                    TextButton(onClick = onRefresh) {
-                        Text("Refresh")
+                    IconButton(
+                        onClick = onRefresh,
+                        modifier = Modifier
+                            .background(DarkSurfaceElevated, RoundedCornerShape(14.dp))
+                            .border(1.dp, DarkOutline, RoundedCornerShape(14.dp)),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Refresh",
+                            tint = CyberCyan,
+                        )
                     }
                 }
             }
 
-            // Content area
+            // Content Area
             if (isGridView) {
                 if (captures.isEmpty()) {
                     EmptyGalleryState(modifier = Modifier.weight(1f))
                 } else {
                     LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 165.dp),
+                        columns = GridCells.Adaptive(minSize = 160.dp),
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -175,6 +247,7 @@ fun AsciiGalleryScreen(
                                 record = record,
                                 onOpen = { selectedIndex = index },
                                 onExport = { onExportCapture(record) },
+                                onCopy = onCopyAscii?.let { cb -> { cb(record) } },
                             )
                         }
                     }
@@ -184,8 +257,9 @@ fun AsciiGalleryScreen(
                     captures = captures,
                     initialIndex = selectedIndex ?: 0,
                     onPageChanged = { selectedIndex = it },
-                    onDelete = { record -> onDeleteCapture(record) },
+                    onRequestDelete = { record -> recordToDelete = record },
                     onExport = { record -> onExportCapture(record) },
+                    onCopy = onCopyAscii,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -198,17 +272,19 @@ private fun GalleryCard(
     record: CaptureRecord,
     onOpen: () -> Unit,
     onExport: () -> Unit,
+    onCopy: (() -> Unit)?,
 ) {
     val context = LocalContext.current
     val captureFile = remember(record.pngFileName) {
         File(File(context.filesDir, "captures"), record.pngFileName)
     }
-    val previewBitmap by rememberDecodedBitmap(captureFile, targetMaxDimension = 700)
+    val previewBitmap by rememberDecodedBitmap(captureFile, targetMaxDimension = 600)
 
-    Crossfade(targetState = previewBitmap, label = "Preview image fade") {
+    Crossfade(targetState = previewBitmap, label = "Preview image fade") { bmp ->
         Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0x662A1A11)),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = DarkSurfaceElevated),
+            border = androidx.compose.foundation.BorderStroke(1.dp, DarkOutline),
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onOpen),
@@ -220,15 +296,15 @@ private fun GalleryCard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(128.dp)
-                        .background(Color(0xFF120E0A), RoundedCornerShape(12.dp))
-                        .border(1.dp, Color(0x55496D7E), RoundedCornerShape(12.dp)),
+                        .height(130.dp)
+                        .background(Color(0xFF070A0F), RoundedCornerShape(12.dp))
+                        .border(1.dp, Color(0x3300E5FF), RoundedCornerShape(12.dp)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (it != null) {
+                    if (bmp != null) {
                         Image(
-                            bitmap = it.asImageBitmap(),
-                            contentDescription = "Saved capture preview (tap to view)",
+                            bitmap = bmp.asImageBitmap(),
+                            contentDescription = "Saved capture preview",
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(6.dp),
@@ -236,29 +312,51 @@ private fun GalleryCard(
                         )
                     } else {
                         Text(
-                            text = "Preview unavailable",
-                            color = Color(0xFFBDAFA2),
+                            text = "Loading…",
+                            color = TextMuted,
                             style = MaterialTheme.typography.bodySmall,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(10.dp),
                         )
                     }
                 }
+
                 Text(
                     text = prettyTimestamp(record.timestampUtc),
-                    color = Color(0xFFDABDA6),
+                    color = TextSecondary,
                     style = MaterialTheme.typography.labelSmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(horizontal = 2.dp),
                 )
-                Button(
-                    onClick = onExport,
+
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3F5E6A)),
-                    shape = RoundedCornerShape(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Text("Export", fontSize = 13.sp)
+                    if (onCopy != null) {
+                        Button(
+                            onClick = onCopy,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E2B3C)),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp),
+                        ) {
+                            Icon(Icons.Default.ContentCopy, contentDescription = "Copy", modifier = Modifier.size(14.dp), tint = CyberCyan)
+                            Spacer(Modifier.width(4.dp))
+                            Text("Copy", fontSize = 11.sp, color = CyberCyan)
+                        }
+                    }
+                    Button(
+                        onClick = onExport,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF004F58)),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp),
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = "Share", modifier = Modifier.size(14.dp), tint = TextPrimary)
+                        Spacer(Modifier.width(4.dp))
+                        Text("Share", fontSize = 11.sp, color = TextPrimary)
+                    }
                 }
             }
         }
@@ -271,8 +369,9 @@ private fun GalleryViewer(
     captures: List<CaptureRecord>,
     initialIndex: Int,
     onPageChanged: (Int) -> Unit,
-    onDelete: (CaptureRecord) -> Unit,
+    onRequestDelete: (CaptureRecord) -> Unit,
     onExport: (CaptureRecord) -> Unit,
+    onCopy: ((CaptureRecord) -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val pagerState = rememberPagerState(
@@ -317,50 +416,48 @@ private fun GalleryViewer(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color(0xFF10151C), RoundedCornerShape(20.dp))
-            .border(1.dp, Color(0x55324A62), RoundedCornerShape(20.dp))
+            .background(DarkSurfaceElevated, RoundedCornerShape(22.dp))
+            .border(1.dp, DarkOutline, RoundedCornerShape(22.dp))
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        // Page position indicator & Original toggle
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Original capture",
-                    color = Color(0xFFF6ECE1),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontSize = 18.sp,
-                )
+            Column {
                 Text(
                     text = prettyTimestamp(currentRecord.timestampUtc),
-                    color = Color(0xFFC8B7A8),
-                    style = MaterialTheme.typography.bodySmall,
-                    fontSize = 12.sp,
+                    color = TextPrimary,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = "${safeCurrentPage + 1} of ${captures.size}",
+                    color = CyberCyan,
+                    style = MaterialTheme.typography.labelMedium,
                 )
             }
-            Text(
-                text = "${safeCurrentPage + 1} / ${captures.size}",
-                color = Color(0xFFCFBEAE),
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
 
-        if (hasOriginalForCurrent) {
-            Button(
-                onClick = { showOriginal = !showOriginal },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF24374A)),
-                shape = RoundedCornerShape(12.dp),
-            ) {
-                Text(if (showOriginal) "Show ASCII" else "Show Original")
+            if (hasOriginalForCurrent) {
+                Button(
+                    onClick = { showOriginal = !showOriginal },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (showOriginal) Color(0xFF004F58) else Color(0xFF1E2B3C),
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Text(if (showOriginal) "Show ASCII" else "Show Original", fontSize = 12.sp)
+                }
             }
         }
 
+        // Zoomable Preview Area
         HorizontalPager(
             state = pagerState,
-            userScrollEnabled = true,
+            userScrollEnabled = currentZoom <= 1.05f,
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
@@ -368,9 +465,7 @@ private fun GalleryViewer(
             val record = captures[page]
             val context = LocalContext.current
             val capturesDir = remember { File(context.filesDir, "captures") }
-            val asciiFile = remember(record.pngFileName) {
-                File(capturesDir, record.pngFileName)
-            }
+            val asciiFile = remember(record.pngFileName) { File(capturesDir, record.pngFileName) }
             val originalFile = remember(record.originalPngFileName) {
                 record.originalPngFileName?.let { File(capturesDir, it) }
             }
@@ -379,75 +474,84 @@ private fun GalleryViewer(
             val imageZoom = zoomLevels[zoomKey] ?: 1f
             val previewBitmap by rememberDecodedBitmap(selectedFile, targetMaxDimension = 2200)
             val transformState = rememberTransformableState { zoomChange, _, _ ->
-                val currentZoom = zoomLevels[zoomKey] ?: 1f
-                val nextZoom = (currentZoom * zoomChange).coerceIn(1f, 4f)
-                zoomLevels[zoomKey] = nextZoom
+                val curr = zoomLevels[zoomKey] ?: 1f
+                zoomLevels[zoomKey] = (curr * zoomChange).coerceIn(1f, 4f)
             }
 
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF0B0F14), RoundedCornerShape(18.dp))
-                    .border(1.dp, Color(0x55324A62), RoundedCornerShape(18.dp))
-                    .transformable(
-                        state = transformState,
-                        canPan = { false },
-                    ),
+                    .fillMaxSize()
+                    .background(Color(0xFF05070B), RoundedCornerShape(18.dp))
+                    .border(1.dp, Color(0x3300E5FF), RoundedCornerShape(18.dp))
+                    .transformable(state = transformState, canPan = { false }),
                 contentAlignment = Alignment.Center,
             ) {
                 val bitmap = previewBitmap
                 if (bitmap != null) {
                     Image(
                         bitmap = bitmap.asImageBitmap(),
-                        contentDescription = "Full-size saved capture",
+                        contentDescription = "Full-size capture",
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(12.dp)
-                            .graphicsLayer(
-                                scaleX = imageZoom,
-                                scaleY = imageZoom,
-                            ),
+                            .padding(8.dp)
+                            .graphicsLayer(scaleX = imageZoom, scaleY = imageZoom),
                         contentScale = ContentScale.Fit,
                     )
                 } else {
                     Text(
-                        text = "Capture file missing",
-                        color = Color(0xFFE2C4B0),
+                        text = "File missing",
+                        color = AlertRed,
                         style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(20.dp),
                     )
                 }
             }
         }
 
         Text(
-            text = if (showOriginal) {
-                "Showing original preview. Pinch to zoom. Zoom: ${"%.2f".format(currentZoom)}x"
-            } else {
-                "Showing ASCII render. Pinch to zoom. Zoom: ${"%.2f".format(currentZoom)}x"
-            },
-            color = Color(0xFFB7A89A),
+            text = "Pinch to zoom • ${"%.1f".format(currentZoom)}x",
+            color = TextMuted,
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.align(Alignment.CenterHorizontally),
         )
 
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+        // Bottom Action Row: Delete, Copy ASCII, Export
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
             Button(
-                onClick = { onDelete(currentRecord) },
+                onClick = { onRequestDelete(currentRecord) },
                 modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B3F2A)),
-                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A1815)),
+                shape = RoundedCornerShape(14.dp),
             ) {
-                Text("Delete")
+                Icon(Icons.Default.DeleteOutline, contentDescription = "Delete", tint = AlertRed, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Delete", color = AlertRed)
             }
+
+            if (onCopy != null) {
+                Button(
+                    onClick = { onCopy(currentRecord) },
+                    modifier = Modifier.weight(1.2f),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E2B3C)),
+                    shape = RoundedCornerShape(14.dp),
+                ) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = CyberCyan, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Copy ASCII", color = CyberCyan, maxLines = 1)
+                }
+            }
+
             Button(
                 onClick = { onExport(currentRecord) },
                 modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3F5E6A)),
-                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF004F58)),
+                shape = RoundedCornerShape(14.dp),
             ) {
-                Text("Export")
+                Icon(Icons.Default.Share, contentDescription = "Export", tint = TextPrimary, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Share", color = TextPrimary)
             }
         }
     }
@@ -458,23 +562,22 @@ private fun EmptyGalleryState(modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color(0x332A1E16), RoundedCornerShape(20.dp))
-            .border(1.dp, Color(0x554A382D), RoundedCornerShape(20.dp))
-            .padding(24.dp),
+            .background(DarkSurfaceElevated, RoundedCornerShape(20.dp))
+            .border(1.dp, DarkOutline, RoundedCornerShape(20.dp))
+            .padding(28.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.Center,
     ) {
         Text(
-            text = "No captures yet",
-            color = Color(0xFFF4E6D8),
+            text = stringResource(id = R.string.no_captures_title),
+            color = TextPrimary,
             style = MaterialTheme.typography.titleMedium,
-            fontSize = 18.sp,
         )
+        Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = "Take a capture in the camera view and it will appear here.",
-            color = Color(0xFFD3C0AF),
+            text = stringResource(id = R.string.no_captures_desc),
+            color = TextSecondary,
             style = MaterialTheme.typography.bodySmall,
-            fontSize = 14.sp,
             textAlign = TextAlign.Center,
         )
     }

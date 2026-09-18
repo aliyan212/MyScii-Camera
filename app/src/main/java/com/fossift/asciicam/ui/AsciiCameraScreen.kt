@@ -1,10 +1,10 @@
 package com.fossift.asciicam.ui
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -13,12 +13,21 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -26,24 +35,31 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.Image
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cameraswitch
+import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -55,18 +71,25 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import com.fossift.asciicam.R
 import com.fossift.asciicam.camera.AsciiFrameAnalyzer
 import com.fossift.asciicam.camera.CameraAsciiController
 import com.fossift.asciicam.engine.AsciiCharset
@@ -75,6 +98,19 @@ import com.fossift.asciicam.engine.AsciiConverter
 import com.fossift.asciicam.engine.AsciiFrame
 import com.fossift.asciicam.storage.AsciiCaptureStore
 import com.fossift.asciicam.storage.CaptureRecord
+import com.fossift.asciicam.ui.theme.AsciiCool
+import com.fossift.asciicam.ui.theme.AsciiMono
+import com.fossift.asciicam.ui.theme.AsciiNeon
+import com.fossift.asciicam.ui.theme.AsciiWarm
+import com.fossift.asciicam.ui.theme.CyberCyan
+import com.fossift.asciicam.ui.theme.DarkBackground
+import com.fossift.asciicam.ui.theme.DarkOutline
+import com.fossift.asciicam.ui.theme.DarkSurface
+import com.fossift.asciicam.ui.theme.DarkSurfaceElevated
+import com.fossift.asciicam.ui.theme.NeonMint
+import com.fossift.asciicam.ui.theme.TextMuted
+import com.fossift.asciicam.ui.theme.TextPrimary
+import com.fossift.asciicam.ui.theme.TextSecondary
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
@@ -83,21 +119,27 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class RenderPreset {
+enum class RenderPreset {
     FACE,
     SCENE,
 }
 
-private enum class AppScreen {
+enum class AppScreen {
     CAMERA,
     GALLERY,
 }
 
-private enum class ColorMode {
+enum class ColorMode {
     MONO,
     WARM,
     COOL,
     NEON,
+}
+
+enum class GridDensity(val label: String, val width: Int, val height: Int) {
+    COMPACT("Compact (96x54)", 96, 54),
+    STANDARD("Standard (128x72)", 128, 72),
+    FINE("Fine (160x90)", 160, 90),
 }
 
 @Composable
@@ -105,6 +147,7 @@ private enum class ColorMode {
 fun AsciiCameraScreen() {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val haptic = LocalHapticFeedback.current
     val captureStore = remember { AsciiCaptureStore(context) }
     val scope = rememberCoroutineScope()
 
@@ -113,6 +156,7 @@ fun AsciiCameraScreen() {
     var showCameraBackground by remember { mutableStateOf(false) }
     var renderPreset by remember { mutableStateOf(RenderPreset.FACE) }
     var colorMode by remember { mutableStateOf(ColorMode.COOL) }
+    var gridDensity by remember { mutableStateOf(GridDensity.STANDARD) }
     var frameMs by remember { mutableStateOf(0.0) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
     var screenMode by remember { mutableStateOf(AppScreen.CAMERA) }
@@ -120,9 +164,6 @@ fun AsciiCameraScreen() {
     var overlayView by remember { mutableStateOf<AsciiOverlayView?>(null) }
     var recentCaptures by remember { mutableStateOf<List<CaptureRecord>>(emptyList()) }
     var showOptionsSheet by remember { mutableStateOf(false) }
-
-    val fixedGridWidth = AsciiUiDefaults.baseWidth
-    val fixedGridHeight = AsciiUiDefaults.baseHeight
 
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -141,13 +182,13 @@ fun AsciiCameraScreen() {
     val pendingFrameMs = remember { AtomicReference(0.0) }
     val lastFrameMetricUpdateMs = remember { AtomicReference(0L) }
 
-    val analyzer = remember(converter, useFrontCamera, contrast, renderPreset) {
+    val analyzer = remember(converter, useFrontCamera, contrast, renderPreset, gridDensity) {
         AsciiFrameAnalyzer(
             converter = converter,
             configProvider = {
                 AsciiConfig(
-                    width = fixedGridWidth,
-                    height = fixedGridHeight,
+                    width = gridDensity.width,
+                    height = gridDensity.height,
                     contrast = if (renderPreset == RenderPreset.FACE) contrast else (contrast * 0.95f).coerceIn(0.7f, 2.0f),
                     gamma = if (renderPreset == RenderPreset.FACE) 0.92f else 1.0f,
                     charset = if (renderPreset == RenderPreset.FACE) AsciiCharset.PORTRAIT else AsciiCharset.CLASSIC,
@@ -160,7 +201,7 @@ fun AsciiCameraScreen() {
                 )
             },
             mirrorHorizontallyProvider = { useFrontCamera },
-            maxAnalysisFps = 20,
+            maxAnalysisFps = 25,
             onAsciiFrame = { nextFrame, processingMs ->
                 pendingFrame.set(nextFrame)
                 pendingFrameMs.set(processingMs)
@@ -173,7 +214,7 @@ fun AsciiCameraScreen() {
                         }
                         val now = SystemClock.uptimeMillis()
                         val last = lastFrameMetricUpdateMs.get()
-                        if (now - last >= 250L) {
+                        if (now - last >= 200L) {
                             frameMs = pendingFrameMs.get()
                             lastFrameMetricUpdateMs.set(now)
                         }
@@ -183,6 +224,7 @@ fun AsciiCameraScreen() {
             },
         )
     }
+
     DisposableEffect(previewView, lifecycleOwner, useFrontCamera, hasCameraPermission, screenMode) {
         val view = previewView
         if (screenMode != AppScreen.CAMERA || view == null || !hasCameraPermission) {
@@ -208,12 +250,6 @@ fun AsciiCameraScreen() {
         recentCaptures = captureStore.listRecent(limit = 60)
     }
 
-    LaunchedEffect(renderPreset) {
-        if (renderPreset == RenderPreset.FACE) {
-            useFrontCamera = true
-        }
-    }
-
     LaunchedEffect(statusMessage) {
         val message = statusMessage ?: return@LaunchedEffect
         val timeoutMs = if (message.contains("Saving", ignoreCase = true)) 3000L else 2200L
@@ -227,38 +263,12 @@ fun AsciiCameraScreen() {
         screenMode = AppScreen.CAMERA
     }
 
-    val backgroundGradient = Brush.verticalGradient(
-        colors = listOf(Color(0xFF05070A), Color(0xFF090D12), Color(0xFF0C1118)),
-    )
-
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundGradient),
+            .background(DarkBackground),
     ) {
         if (screenMode == AppScreen.CAMERA) {
-            Row(
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(top = 10.dp, start = 12.dp, end = 12.dp)
-                    .background(Color(0xCC090C12), RoundedCornerShape(14.dp))
-                    .border(1.dp, Color(0x55324A62), RoundedCornerShape(14.dp))
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Text(
-                    text = "MySCII Camera",
-                    color = Color(0xFFEFF4FB),
-                    style = MaterialTheme.typography.titleSmall,
-                )
-                Text(
-                    text = "${"%.1f".format(frameMs)} ms",
-                    color = Color(0xFF9FB0C4),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-
             CameraTab(
                 modifier = Modifier.fillMaxSize(),
                 hasCameraPermission = hasCameraPermission,
@@ -267,55 +277,137 @@ fun AsciiCameraScreen() {
                 colorMode = colorMode,
                 showCameraBackground = showCameraBackground,
                 onPreviewReady = { previewView = it },
-                onOverlayReady = { view ->
-                    overlayView = view
-                },
+                onOverlayReady = { view -> overlayView = view },
             )
 
-            BoxWithConstraints(
+            // Top Glassmorphic HUD with Material 3 App Brand Logo
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                // Brand pill
+                Row(
+                    modifier = Modifier
+                        .background(Color(0xEE0D121B), RoundedCornerShape(16.dp))
+                        .border(1.dp, Color(0xFF28384D), RoundedCornerShape(16.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_myscii_logo),
+                        contentDescription = "MySCII Logo",
+                        modifier = Modifier.size(24.dp),
+                    )
+                    Column {
+                        Text(
+                            text = "MySCII",
+                            color = TextPrimary,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        val fps = if (frameMs > 0.0) (1000.0 / frameMs).coerceAtMost(60.0) else 0.0
+                        Text(
+                            text = "${"%.1f".format(frameMs)} ms • ${"%.0f".format(fps)} fps",
+                            color = TextSecondary,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontSize = 11.sp,
+                        )
+                    }
+                }
+
+                // Quick Action: Switch Camera button
+                IconButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        useFrontCamera = !useFrontCamera
+                    },
+                    modifier = Modifier
+                        .background(Color(0xCC0D121B), RoundedCornerShape(14.dp))
+                        .border(1.dp, DarkOutline, RoundedCornerShape(14.dp))
+                        .size(44.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Cameraswitch,
+                        contentDescription = "Switch Camera",
+                        tint = TextPrimary,
+                    )
+                }
+            }
+
+            // Bottom Navigation & Shutter Bar
+            Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(horizontal = 14.dp, vertical = 12.dp)
                     .fillMaxWidth()
-                    .background(Color(0xAA0A0D11), RoundedCornerShape(22.dp))
-                    .padding(horizontal = 12.dp, vertical = 14.dp),
+                    .navigationBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 16.dp)
+                    .background(Color(0xCC0D121B), RoundedCornerShape(26.dp))
+                    .border(1.dp, Color(0x3328384D), RoundedCornerShape(26.dp))
+                    .padding(horizontal = 18.dp, vertical = 14.dp),
             ) {
-                val actionWidth = maxWidth / 3
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Button(
+                    // Gallery Button
+                    IconButton(
                         onClick = {
                             recentCaptures = captureStore.listRecent(limit = 60)
                             screenMode = AppScreen.GALLERY
                         },
                         modifier = Modifier
-                            .width(actionWidth)
-                            .height(54.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF11161D)),
-                        shape = RoundedCornerShape(18.dp),
+                            .size(54.dp)
+                            .background(DarkSurfaceElevated, RoundedCornerShape(16.dp))
+                            .border(1.dp, DarkOutline, RoundedCornerShape(16.dp)),
                     ) {
-                        Text("Gallery")
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PhotoLibrary,
+                                contentDescription = "Gallery",
+                                tint = TextPrimary,
+                                modifier = Modifier.size(24.dp),
+                            )
+                        }
                     }
+
+                    // Tactile Material 3 Shutter Button
+                    val shutterInteraction = remember { MutableInteractionSource() }
+                    val isShutterPressed by shutterInteraction.collectIsPressedAsState()
+                    val shutterScale by animateFloatAsState(
+                        targetValue = if (isShutterPressed) 0.92f else 1f,
+                        animationSpec = tween(100),
+                        label = "Shutter scale",
+                    )
 
                     Box(
                         modifier = Modifier
-                            .width(actionWidth)
-                            .height(84.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Button(
-                            onClick = {
+                            .size(80.dp)
+                            .scale(shutterScale)
+                            .clip(CircleShape)
+                            .background(Color(0xFF161E2C))
+                            .border(3.dp, Color(0xFFF1F5F9), CircleShape)
+                            .clickable(
+                                interactionSource = shutterInteraction,
+                                indication = null,
+                            ) {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 val snapshot = latestFrame.get()?.asText()
                                 if (snapshot == null) {
                                     statusMessage = "No frame yet. Try again in a moment."
-                                    return@Button
+                                    return@clickable
                                 }
-                                // Read from PreviewView on UI thread, then save on IO.
                                 val originalPreviewBitmap = previewView?.bitmap?.let { Bitmap.createBitmap(it) }
-                                statusMessage = "Saving capture..."
+                                statusMessage = "Saving capture…"
                                 scope.launch {
                                     val result = withContext(Dispatchers.IO) {
                                         runCatching {
@@ -330,29 +422,31 @@ fun AsciiCameraScreen() {
                                     }
                                 }
                             },
-                            modifier = Modifier.size(78.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE7E9EF)),
-                            shape = androidx.compose.foundation.shape.CircleShape,
-                            contentPadding = PaddingValues(0.dp),
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .border(2.dp, Color(0xFF0A0D11), androidx.compose.foundation.shape.CircleShape)
-                                    .background(Color.Transparent, androidx.compose.foundation.shape.CircleShape),
-                            )
-                        }
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFF1F5F9))
+                                .border(2.dp, Color(0xFF0F141F), CircleShape),
+                        )
                     }
 
-                    Button(
+                    // Settings / Menu Button
+                    IconButton(
                         onClick = { showOptionsSheet = true },
                         modifier = Modifier
-                            .width(actionWidth)
-                            .height(54.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF11161D)),
-                        shape = RoundedCornerShape(18.dp),
+                            .size(54.dp)
+                            .background(DarkSurfaceElevated, RoundedCornerShape(16.dp))
+                            .border(1.dp, DarkOutline, RoundedCornerShape(16.dp)),
                     ) {
-                        Text("Menu")
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = "Settings",
+                            tint = TextPrimary,
+                            modifier = Modifier.size(24.dp),
+                        )
                     }
                 }
             }
@@ -388,62 +482,90 @@ fun AsciiCameraScreen() {
                         }
                     }
                 },
+                onCopyAscii = { record ->
+                    val text = captureStore.readCaptureText(record)
+                    if (text != null) {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        val clip = android.content.ClipData.newPlainText("MySCII ASCII", text)
+                        clipboard.setPrimaryClip(clip)
+                        statusMessage = "ASCII text copied to clipboard"
+                    } else {
+                        statusMessage = "Text file not found"
+                    }
+                },
             )
         }
 
-        statusMessage?.let {
-            Text(
-                text = it,
-                color = Color(0xFFE7EEF7),
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 54.dp, start = 12.dp, end = 12.dp)
-                    .fillMaxWidth()
-                    .background(Color(0xAA0C1118), RoundedCornerShape(10.dp))
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
-            )
+        // Animated Status Toast Banner
+        AnimatedVisibility(
+            visible = statusMessage != null,
+            enter = fadeIn() + slideInVertically(initialOffsetY = { -it }),
+            exit = fadeOut() + slideOutVertically(targetOffsetY = { -it }),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(top = 64.dp, start = 16.dp, end = 16.dp),
+        ) {
+            statusMessage?.let { msg ->
+                Text(
+                    text = msg,
+                    color = TextPrimary,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier
+                        .background(Color(0xF0101824), RoundedCornerShape(12.dp))
+                        .border(1.dp, CyberCyan, RoundedCornerShape(12.dp))
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                )
+            }
         }
     }
 
+    // Material 3 Settings Bottom Sheet
     if (showOptionsSheet && screenMode == AppScreen.CAMERA) {
         ModalBottomSheet(
             onDismissRequest = { showOptionsSheet = false },
-            containerColor = Color(0xFF05070A),
-            contentColor = Color(0xFFF0F3F8),
+            containerColor = DarkSurface,
+            contentColor = TextPrimary,
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                    .padding(horizontal = 20.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                Text(
-                    text = "MySCII Settings",
-                    color = Color(0xFFF0F3F8),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text = "Frame ${"%.1f".format(frameMs)} ms",
-                    color = Color(0xFFB8C2CF),
-                    style = MaterialTheme.typography.bodySmall,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.settings_title),
+                        color = TextPrimary,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "${gridDensity.width}x${gridDensity.height}",
+                        color = CyberCyan,
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                }
+
                 CameraControlsPanel(
                     useFrontCamera = useFrontCamera,
                     onSwitchCamera = { useFrontCamera = !useFrontCamera },
                     showCameraBackground = showCameraBackground,
                     onToggleAsciiOnly = { showCameraBackground = !showCameraBackground },
                     renderPreset = renderPreset,
-                    onFacePreset = { renderPreset = RenderPreset.FACE },
-                    onScenePreset = { renderPreset = RenderPreset.SCENE },
+                    onPresetChange = { renderPreset = it },
+                    gridDensity = gridDensity,
+                    onDensityChange = { gridDensity = it },
                     colorMode = colorMode,
                     onColorModeChange = { colorMode = it },
                     contrast = contrast,
                     onContrastChange = { contrast = it },
-                    gridWidth = fixedGridWidth,
-                    gridHeight = fixedGridHeight,
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(20.dp))
             }
         }
     }
@@ -463,27 +585,32 @@ private fun CameraTab(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF040608)),
+            .background(DarkBackground),
     ) {
         if (!hasCameraPermission) {
             PermissionGate(onGrant = onRequestPermission)
         } else {
+            // Live CameraX Preview - Set to COMPATIBLE (TextureView) for snapshot capture and dynamic alpha for blending
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
-                factory = {
-                    PreviewView(it).also { view ->
-                        view.implementationMode = PreviewView.ImplementationMode.PERFORMANCE
+                factory = { context ->
+                    PreviewView(context).also { view ->
+                        view.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
                         view.scaleType = PreviewView.ScaleType.FILL_CENTER
-                        view.alpha = 0f
+                        view.alpha = if (showCameraBackground) 1f else 0f
                         onPreviewReady(view)
                     }
                 },
+                update = { view ->
+                    view.alpha = if (showCameraBackground) 1f else 0f
+                },
             )
+
+            // Dynamic ASCII Overlay View
             AndroidView(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(if (showCameraBackground) Color(0xA00B0F16) else Color(0xFF040608))
-                    .padding(8.dp),
+                    .background(if (showCameraBackground) Color(0x66070A0F) else DarkBackground),
                 factory = { context ->
                     AsciiOverlayView(context).also { asciiView ->
                         asciiView.setAsciiColorInt(asciiColor.toArgb())
@@ -501,234 +628,119 @@ private fun CameraTab(
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 private fun CameraControlsPanel(
     useFrontCamera: Boolean,
     onSwitchCamera: () -> Unit,
     showCameraBackground: Boolean,
     onToggleAsciiOnly: () -> Unit,
     renderPreset: RenderPreset,
-    onFacePreset: () -> Unit,
-    onScenePreset: () -> Unit,
+    onPresetChange: (RenderPreset) -> Unit,
+    gridDensity: GridDensity,
+    onDensityChange: (GridDensity) -> Unit,
     colorMode: ColorMode,
     onColorModeChange: (ColorMode) -> Unit,
     contrast: Float,
     onContrastChange: (Float) -> Unit,
-    gridWidth: Int,
-    gridHeight: Int,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Preset and Background Mode Row
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            Button(
-                onClick = onSwitchCamera,
+            FilterChip(
+                selected = renderPreset == RenderPreset.FACE,
+                onClick = { onPresetChange(RenderPreset.FACE) },
+                label = { Text("Portrait") },
                 modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF11161D)),
-            ) {
-                Text(if (useFrontCamera) "Front cam" else "Back cam")
-            }
-        }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            Button(
-                onClick = onFacePreset,
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = if (renderPreset == RenderPreset.FACE) Color(0xFF213A34) else Color(0xFF11161D)),
-            ) {
-                Text("Face")
-            }
-            Button(
-                onClick = onScenePreset,
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = if (renderPreset == RenderPreset.SCENE) Color(0xFF2E3B3F) else Color(0xFF11161D)),
-            ) {
-                Text("Scene")
-            }
-            Button(
-                onClick = onToggleAsciiOnly,
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B1512)),
-            ) {
-                Text(if (showCameraBackground) "Blend" else "ASCII only")
-            }
-        }
-
-        Text("Color mode", color = Color(0xFFD4D9E2), style = MaterialTheme.typography.labelLarge)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            Button(
-                onClick = { onColorModeChange(ColorMode.MONO) },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = if (colorMode == ColorMode.MONO) Color(0xFF1D2730) else Color(0xFF11161D)),
-            ) { Text("Mono") }
-            Button(
-                onClick = { onColorModeChange(ColorMode.WARM) },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = if (colorMode == ColorMode.WARM) Color(0xFF382818) else Color(0xFF11161D)),
-            ) { Text("Warm") }
-            Button(
-                onClick = { onColorModeChange(ColorMode.COOL) },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = if (colorMode == ColorMode.COOL) Color(0xFF18393D) else Color(0xFF11161D)),
-            ) { Text("Cool") }
-            Button(
-                onClick = { onColorModeChange(ColorMode.NEON) },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = if (colorMode == ColorMode.NEON) Color(0xFF13211A) else Color(0xFF11161D)),
-            ) { Text("Neon") }
-        }
-
-        Text("Contrast", color = Color(0xFFD4D9E2), style = MaterialTheme.typography.labelLarge)
-        Slider(value = contrast, onValueChange = onContrastChange, valueRange = 0.7f..2.0f)
-
-        Text(
-            text = "Grid ${gridWidth}x${gridHeight}",
-            color = Color(0xFF8794A5),
-            style = MaterialTheme.typography.bodySmall,
-        )
-    }
-}
-
-@Composable
-private fun PhotoGalleryTab(
-    modifier: Modifier = Modifier,
-    captures: List<CaptureRecord>,
-    onRefresh: () -> Unit,
-    onExportCapture: (CaptureRecord) -> Unit,
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0x5520120B)),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "MySCII Gallery",
-                        color = Color(0xFFFFF4E5),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        text = "${captures.size} photos saved",
-                        color = Color(0xFFDEC9B8),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                TextButton(onClick = onRefresh) {
-                    Text("Refresh")
-                }
-            }
-
-            if (captures.isEmpty()) {
-                EmptyGalleryState()
-            } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 160.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(bottom = 8.dp),
-                ) {
-                    items(captures) { record ->
-                        PhotoCard(record = record, onExport = { onExportCapture(record) })
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmptyGalleryState() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0x332A1E16), RoundedCornerShape(14.dp))
-            .border(1.dp, Color(0x554A382D), RoundedCornerShape(14.dp))
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Text(
-            text = "No photos yet",
-            color = Color(0xFFF4E6D8),
-            style = MaterialTheme.typography.titleSmall,
-        )
-        Text(
-            text = "Capture a frame in MySCII Camera and it will appear here.",
-            color = Color(0xFFD3C0AF),
-            style = MaterialTheme.typography.bodySmall,
-            textAlign = TextAlign.Center,
-        )
-    }
-}
-
-@Composable
-private fun PhotoCard(record: CaptureRecord, onExport: () -> Unit) {
-    val context = LocalContext.current
-    val captureFile = remember(record.pngFileName) { File(File(context.filesDir, "captures"), record.pngFileName) }
-    val previewBitmap = remember(captureFile.absolutePath) {
-        if (captureFile.exists()) {
-            runCatching { BitmapFactory.decodeFile(captureFile.absolutePath) }.getOrNull()
-        } else {
-            null
-        }
-    }
-
-    Card(
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0x662A1A11)),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onExport),
-    ) {
-        Column(
-            modifier = Modifier.padding(10.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(118.dp)
-                    .background(Color(0xFF120E0A), RoundedCornerShape(10.dp))
-                    .border(1.dp, Color(0x55496D7E), RoundedCornerShape(10.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (previewBitmap != null) {
-                    Image(
-                        bitmap = previewBitmap.asImageBitmap(),
-                        contentDescription = "Saved ASCII photo",
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(6.dp),
-                    )
-                } else {
-                    Text(
-                        text = "Photo preview unavailable",
-                        color = Color(0xFFBDAFA2),
-                        style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(10.dp),
-                    )
-                }
-            }
-            Text(
-                text = prettyTimestamp(record.timestampUtc),
-                color = Color(0xFFDABDA6),
-                style = MaterialTheme.typography.bodySmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = Color(0xFF004F58),
+                    selectedLabelColor = CyberCyan,
+                ),
             )
-            Button(
-                onClick = onExport,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7A5E3A)),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Export photo")
+            FilterChip(
+                selected = renderPreset == RenderPreset.SCENE,
+                onClick = { onPresetChange(RenderPreset.SCENE) },
+                label = { Text("Scene") },
+                modifier = Modifier.weight(1f),
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = Color(0xFF004F58),
+                    selectedLabelColor = CyberCyan,
+                ),
+            )
+            FilterChip(
+                selected = showCameraBackground,
+                onClick = onToggleAsciiOnly,
+                label = { Text(if (showCameraBackground) "Blend" else "ASCII Only") },
+                modifier = Modifier.weight(1f),
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = Color(0xFF005237),
+                    selectedLabelColor = NeonMint,
+                ),
+            )
+        }
+
+        // Density / Resolution Selector
+        Text("Resolution Density", color = TextSecondary, style = MaterialTheme.typography.labelMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            GridDensity.entries.forEach { density ->
+                FilterChip(
+                    selected = gridDensity == density,
+                    onClick = { onDensityChange(density) },
+                    label = { Text(density.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                    modifier = Modifier.weight(1f),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = Color(0xFF1E2B3C),
+                        selectedLabelColor = CyberCyan,
+                    ),
+                )
             }
         }
+
+        // Color Mode Row
+        Text("Color Palette", color = TextSecondary, style = MaterialTheme.typography.labelMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            ColorMode.entries.forEach { mode ->
+                FilterChip(
+                    selected = colorMode == mode,
+                    onClick = { onColorModeChange(mode) },
+                    label = { Text(mode.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                    modifier = Modifier.weight(1f),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = when (mode) {
+                            ColorMode.MONO -> Color(0xFF243040)
+                            ColorMode.WARM -> Color(0xFF422C14)
+                            ColorMode.COOL -> Color(0xFF0C3844)
+                            ColorMode.NEON -> Color(0xFF143026)
+                        },
+                        selectedLabelColor = when (mode) {
+                            ColorMode.MONO -> AsciiMono
+                            ColorMode.WARM -> AsciiWarm
+                            ColorMode.COOL -> AsciiCool
+                            ColorMode.NEON -> NeonMint
+                        },
+                    ),
+                )
+            }
+        }
+
+        // Contrast Slider
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Contrast", color = TextSecondary, style = MaterialTheme.typography.labelMedium)
+            Text("${"%.2f".format(contrast)}x", color = CyberCyan, style = MaterialTheme.typography.bodySmall)
+        }
+        Slider(
+            value = contrast,
+            onValueChange = onContrastChange,
+            valueRange = 0.7f..2.0f,
+            colors = SliderDefaults.colors(
+                thumbColor = CyberCyan,
+                activeTrackColor = CyberCyan,
+                inactiveTrackColor = Color(0xFF1A2636),
+            ),
+        )
     }
 }
 
@@ -737,39 +749,49 @@ private fun PermissionGate(onGrant: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(20.dp),
+            .padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Camera permission required", color = Color.White, style = MaterialTheme.typography.titleMedium)
+        Image(
+            painter = painterResource(id = R.drawable.ic_myscii_logo),
+            contentDescription = null,
+            modifier = Modifier.size(56.dp),
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            stringResource(id = R.string.camera_permission_required),
+            color = TextPrimary,
+            style = MaterialTheme.typography.titleLarge,
+        )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            "Allow camera access to start the live MySCII renderer.",
-            color = Color(0xFFB8C9D8),
+            stringResource(id = R.string.camera_permission_rationale),
+            color = TextSecondary,
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
         )
-        Spacer(modifier = Modifier.height(14.dp))
-        Button(onClick = onGrant) {
-            Text("Grant permission")
+        Spacer(modifier = Modifier.height(20.dp))
+        Button(
+            onClick = onGrant,
+            colors = ButtonDefaults.buttonColors(containerColor = CyberCyan, contentColor = DarkBackground),
+            shape = RoundedCornerShape(14.dp),
+        ) {
+            Text(stringResource(id = R.string.grant_permission), fontWeight = FontWeight.Bold)
         }
     }
 }
 
-private fun prettyTimestamp(raw: String): String {
-    return raw.replace('T', ' ').removeSuffix("Z").take(19)
-}
-
 private fun asciiToneColor(colorMode: ColorMode): Color {
     return when (colorMode) {
-        ColorMode.MONO -> Color(0xFFDCE5EF)
-        ColorMode.WARM -> Color(0xFFFFD5A8)
-        ColorMode.COOL -> Color(0xFFCBF7FF)
-        ColorMode.NEON -> Color(0xFFEAFBFF)
+        ColorMode.MONO -> AsciiMono
+        ColorMode.WARM -> AsciiWarm
+        ColorMode.COOL -> AsciiCool
+        ColorMode.NEON -> AsciiNeon
     }
 }
 
-private fun sharePngFile(context: android.content.Context, pngFile: File, onStatus: (String) -> Unit) {
+private fun sharePngFile(context: Context, pngFile: File, onStatus: (String) -> Unit) {
     if (!pngFile.exists()) {
         onStatus("PNG export failed: file missing")
         return
@@ -785,7 +807,7 @@ private fun sharePngFile(context: android.content.Context, pngFile: File, onStat
     val shareIntent = Intent(Intent.ACTION_SEND).apply {
         type = "image/png"
         putExtra(Intent.EXTRA_STREAM, uri)
-        putExtra(Intent.EXTRA_TEXT, "ASCII render PNG")
+        putExtra(Intent.EXTRA_TEXT, "ASCII render PNG from MySCII Camera")
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
 
