@@ -15,6 +15,7 @@ val CyberCyanDark = Color(0xFF004F58)
 
 val NeonMint = Color(0xFF00F0A8)
 val NeonMintDark = Color(0xFF005237)
+val NeonMintLight = Color(0xFF73FDBE)
 
 val SolarAmber = Color(0xFFFFB74D)
 val SolarAmberDark = Color(0xFF4A2800)
