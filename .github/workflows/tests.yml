@@ -23,8 +23,11 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v3
 
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
       - name: Run ascii-engine tests
-        run: gradle :ascii-engine:test --stacktrace
+        run: ./gradlew :ascii-engine:test --stacktrace
 
       - name: Run app unit tests
-        run: gradle :app:testDebugUnitTest --stacktrace
+        run: ./gradlew :app:testDebugUnitTest --stacktrace
