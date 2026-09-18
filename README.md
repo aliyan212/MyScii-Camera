@@ -1,11 +1,6 @@
 <div align="center">
 
-```
-     .---.
-   _/__o__\_
-  |  [(@)]  |    M y S C I I   C A M E R A
-  '---------'    Real-Time Camera-to-ASCII for Android
-```
+<img src="docs/assets/icon.png" alt="MySCII Camera Icon" width="128" height="128" />
 
 # MySCII Camera
 
@@ -28,27 +23,27 @@
 
 ---
 
-## ✨ Features
+## Features
 
-- **⚡ Real-Time ASCII Engine**: High-performance luminance quantization, gamma correction, temporal smoothing to prevent flicker, and configurable glyph lookups.
-- **🎨 Dynamic Palette Filters**:
+- **Real-Time ASCII Engine**: High-performance luminance quantization, gamma correction, temporal smoothing to prevent flicker, and configurable glyph lookups.
+- **Dynamic Palette Filters**:
   - **Mono**: High-contrast terminal ivory.
   - **Warm**: Vintage sepia amber glow.
   - **Cool**: Cyberpunk electric cyan.
   - **Neon**: Dynamic rainbow gradient shader.
-- **🎛️ Resolution Density Presets**:
+- **Resolution Density Presets**:
   - **Compact** (`96x54`): Chunky retro-terminal aesthetic, maximum FPS.
   - **Standard** (`128x72`): Balanced high-speed real-time capture.
   - **Fine** (`160x90`): High-definition character density.
-- **🌓 Dual Display Modes**:
+- **Dual Display Modes**:
   - **ASCII Only**: Pure character matrix on deep dark background.
   - **Camera Blend**: Live camera video feed subtly blended beneath the character overlay.
-- **🖼️ Built-in Gallery & Capture Comparison**:
+- **Built-in Gallery & Capture Comparison**:
   - Full-screen swipeable viewer with pinch-to-zoom (up to 4x).
   - One-tap **A/B Comparison**: Toggle between ASCII render and the original camera photo.
   - **Copy ASCII Art**: Directly copy the raw text representation to your clipboard.
   - **Share & Export**: Export high-resolution PNG renders directly to social apps or storage.
-- **🎯 Material 3 Design**:
+- **Material 3 Design**:
   - Clean typographic ASCII camera app icon (`[(@)]` iris) with Android 13+ dynamic Material You monochrome support.
   - Edge-to-edge layout with full support for display cutouts, notches, and navigation bars.
   - Tactile mechanical shutter button with micro-animations and haptic feedback.
@@ -56,7 +51,7 @@
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 The project is architected as a modular, separation-of-concerns Kotlin repository:
 
@@ -77,7 +72,7 @@ MyScii-Camera/
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -112,7 +107,7 @@ The APK will be generated at `app/build/outputs/apk/debug/app-debug.apk`.
 
 ---
 
-## 📖 Governance & Documentation
+## Governance & Documentation
 
 - [Contributing Guidelines](CONTRIBUTING.md)
 - [Changelog](CHANGELOG.md)
@@ -124,6 +119,7 @@ The APK will be generated at `app/build/outputs/apk/debug/app-debug.apk`.
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the terms of the [MIT License](LICENSE).
+
