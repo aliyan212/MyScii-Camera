@@ -1,0 +1,61 @@
+name: Build & Release APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to upload APKs to (e.g. 1.2)'
+        required: true
+        default: '1.2'
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Build APKs
+        run: ./gradlew :app:assembleRelease :app:assembleDebug --stacktrace
+
+      - name: Package Release Assets
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk dist/myscii-camera-v1.2-release.apk
+          cp app/build/outputs/apk/release/app-release.apk dist/app-release.apk
+          cp app/build/outputs/apk/debug/app-debug.apk dist/myscii-camera-v1.2-debug.apk
+          cd dist
+          sha256sum *.apk > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: myscii-camera-apks
+          path: dist/
+
+      - name: Upload APKs to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event.inputs.tag || github.event.release.tag_name || '1.2' }}"
+          echo "Uploading APK assets to release tag: $TAG"
+          gh release upload "$TAG" dist/* --clobber
