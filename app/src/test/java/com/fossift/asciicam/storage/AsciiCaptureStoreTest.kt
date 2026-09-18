@@ -8,13 +8,18 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class AsciiCaptureStoreTest {
-    private val context = ApplicationProvider.getApplicationContext<Context>()
-    private val capturesDir = File(context.filesDir, "captures")
+    private lateinit var context: Context
+    private lateinit var capturesDir: File
 
     @Before
     fun setUp() {
+        context = ApplicationProvider.getApplicationContext<Context>()
+        capturesDir = File(context.filesDir, "captures")
         capturesDir.deleteRecursively()
         capturesDir.mkdirs()
     }
